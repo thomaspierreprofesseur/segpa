@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Suivi des Élèves - Gestion SEGPA</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            min-height: -webkit-fill-available;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 15px;
+        }
+
+        #loginScreen {
+            background: white;
+            padding: 30px 25px;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+            margin-top: 40px;
+        }
+        #loginScreen h2 { color:#333; margin-bottom:25px; font-size:24px; }
+        #loginScreen input {
+            width:100%; padding:15px; margin-bottom:15px;
+            border:2px solid #ddd; border-radius:8px; font-size:16px;
+        }
+        #loginScreen button {
+            width:100%; padding:15px; background:#667eea; color:white;
+            border:none; border-radius:8px; font-size:18px; cursor:pointer;
+            touch-action:manipulation;
+        }
+        #loginScreen button:hover { background:#5a67d8; }
+        .error-message { color:#e74c3c; margin-top:10px; padding:10px; background:#ffe8e8; border-radius:5px; display:none; }
+        .info-message { color:#2c3e50; margin-top:15px; font-size:12px; opacity:0.7; }
+        .sync-status { margin-top:12px; font-size:12px; color:#666; padding:8px; background:#f0f4ff; border-radius:6px; border:1px solid #d0d9ff; }
+
+        #mainApp {
+            display:none; background:white; border-radius:15px;
+            box-shadow:0 20px 60px rgba(0,0,0,0.3);
+            width:100%; max-width:1400px; overflow:hidden; margin-top:10px;
+        }
+
+        .header {
+            background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);
+            color:white; padding:18px 20px;
+            display:flex; justify-content:space-between; align-items:center; gap:10px;
+        }
+        .header h1 { font-size:clamp(15px,4vw,22px); line-height:1.3; }
+        .header-right { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+
+        .sync-indicator { font-size:11px; padding:4px 8px; border-radius:12px; background:rgba(255,255,255,0.15); white-space:nowrap; }
+        .sync-indicator.syncing { background:rgba(255,200,0,0.3); }
+        .sync-indicator.synced  { background:rgba(0,255,100,0.2); }
+        .sync-indicator.error   { background:rgba(255,100,100,0.3); }
+
+        .logout-btn {
+            background:rgba(255,255,255,0.2); color:white; border:2px solid white;
+            padding:8px 14px; border-radius:5px; cursor:pointer; font-size:14px;
+            touch-action:manipulation; white-space:nowrap; transition:all 0.3s;
+        }
+        .logout-btn:hover { background:white; color:#667eea; }
+
+        .nav-tabs {
+            display:flex; background:#f8f9fa; border-bottom:2px solid #dee2e6;
+            overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none;
+        }
+        .nav-tabs::-webkit-scrollbar { display:none; }
+
+        .nav-tab {
+            flex:0 0 auto; padding:12px 16px; text-align:center; background:none;
+            border:none; cursor:pointer; font-size:14px; transition:all 0.3s;
+            border-bottom:3px solid transparent; white-space:nowrap;
+            touch-action:manipulation; min-height:48px;
+        }
+        .nav-tab:hover { background:#e9ecef; }
+        .nav-tab.active { background:white; border-bottom:3px solid #667eea; color:#667eea; font-weight:bold; }
+
+        .content { padding:20px 15px; min-height:400px; }
+        .tab-content { display:none; }
+        .tab-content.active { display:block; animation:fadeIn 0.3s; }
+        @keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+
+        .form-group { margin-bottom:20px; }
+        label { display:block; margin-bottom:8px; font-weight:600; color:#333; font-size:15px; }
+
+        select, input[type="date"], textarea, input[type="text"] {
+            width:100%; padding:14px 12px; border:2px solid #dee2e6; border-radius:8px;
+            font-size:16px; transition:border-color 0.3s;
+            -webkit-appearance:none; appearance:none; background:white;
+        }
+        select {
+            background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23555' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+            background-repeat:no-repeat; background-position:right 12px center; padding-right:36px;
+        }
+        select:focus, input[type="date"]:focus, textarea:focus, input[type="text"]:focus { outline:none; border-color:#667eea; }
+        textarea { resize:vertical; min-height:120px; font-family:inherit; }
+
+        .char-counter { text-align:right; color:#6c757d; font-size:13px; margin-top:5px; }
+        .char-counter.warning { color:#ffc107; }
+        .char-counter.danger  { color:#dc3545; }
+
+        .btn { padding:13px 20px; border:none; border-radius:8px; font-size:15px; cursor:pointer; transition:all 0.3s; touch-action:manipulation; min-height:48px; }
+        .btn-primary   { background:#667eea; color:white; } .btn-primary:hover   { background:#5a67d8; }
+        .btn-success   { background:#28a745; color:white; } .btn-success:hover   { background:#218838; }
+        .btn-danger    { background:#dc3545; color:white; } .btn-danger:hover    { background:#c82333; }
+        .btn-secondary { background:#6c757d; color:white; } .btn-secondary:hover { background:#5a6268; }
+        .btn-row { display:flex; flex-wrap:wrap; gap:10px; margin-top:5px; }
+
+        .table-responsive { overflow-x:auto; -webkit-overflow-scrolling:touch; border-radius:8px; }
+        .results-table { width:100%; border-collapse:collapse; margin-top:15px; min-width:480px; }
+        .results-table thead { background:#f8f9fa; }
+        .results-table th { padding:12px 10px; text-align:left; font-weight:600; border-bottom:2px solid #dee2e6; font-size:14px; white-space:nowrap; }
+        .results-table td { padding:10px; border-bottom:1px solid #dee2e6; font-size:14px; vertical-align:top; }
+        .results-table tbody tr:hover { background:#f8f9fa; }
+
+        .alert { padding:14px; border-radius:8px; margin-bottom:15px; display:none; font-size:14px; }
+        .alert.show { display:block; animation:slideIn 0.3s; }
+        @keyframes slideIn { from{transform:translateX(-20px);opacity:0} to{transform:translateX(0);opacity:1} }
+        .alert-success { background:#d4edda; color:#155724; border:1px solid #c3e6cb; }
+        .alert-danger  { background:#f8d7da; color:#721c24; border:1px solid #f5c6cb; }
+        .alert-info    { background:#d1ecf1; color:#0c5460; border:1px solid #bee5eb; display:block; }
+
+        .manage-list { border:1px solid #dee2e6; border-radius:8px; padding:15px; margin-bottom:15px; }
+        .manage-list h3 { margin-bottom:12px; color:#333; font-size:16px; }
+        .list-items { max-height:280px; overflow-y:auto; margin-bottom:12px; -webkit-overflow-scrolling:touch; }
+        .list-item { display:flex; justify-content:space-between; align-items:center; padding:12px 10px; background:#f8f9fa; margin-bottom:5px; border-radius:5px; gap:10px; }
+        .list-item:hover { background:#e9ecef; }
+        .list-item span { flex:1; font-size:14px; word-break:break-word; }
+        .list-item .delete-btn { background:#dc3545; color:white; border:none; padding:8px 12px; border-radius:5px; cursor:pointer; font-size:13px; flex-shrink:0; min-height:36px; touch-action:manipulation; }
+        .list-item .delete-btn:hover { background:#c82333; }
+        .add-item-form { display:flex; gap:8px; }
+        .add-item-form input { flex:1; padding:12px 10px; border:2px solid #dee2e6; border-radius:5px; font-size:16px; }
+
+        .search-filters { background:#f8f9fa; padding:15px; border-radius:8px; margin-bottom:15px; }
+        .filter-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; margin-bottom:12px; }
+
+        .stats-container { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-bottom:25px; }
+        .stat-card { background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); color:white; padding:16px 12px; border-radius:10px; text-align:center; }
+        .stat-card h3 { font-size:clamp(22px,6vw,36px); margin-bottom:6px; word-break:break-word; }
+        .stat-card p  { font-size:12px; opacity:0.9; }
+
+        #loadingOverlay {
+            position:fixed; inset:0; background:rgba(102,126,234,0.9); z-index:9999;
+            display:flex; flex-direction:column; align-items:center; justify-content:center;
+            color:white; font-size:18px; gap:15px;
+        }
+        .spinner { width:48px; height:48px; border:5px solid rgba(255,255,255,0.3); border-top-color:white; border-radius:50%; animation:spin 0.8s linear infinite; }
+        @keyframes spin { to{transform:rotate(360deg)} }
+
+        @media (min-width:768px) {
+            body { padding:20px; align-items:center; }
+            #loginScreen { margin-top:0; }
+            #mainApp { margin-top:0; }
+            .content { padding:25px 30px; }
+            .stats-container { grid-template-columns:repeat(4,1fr); }
+            .header { padding:22px 25px; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="loadingOverlay" style="display:none;">
+    <div class="spinner"></div>
+    <span id="loadingMsg">Chargement…</span>
+</div>
+
+<div id="loginScreen">
+    <h2>🔐 Connexion</h2>
+    <form id="loginForm">
+        <input type="password" id="password" placeholder="Entrez le mot de passe" autocomplete="off">
+        <button type="submit">Se connecter</button>
+        <div class="error-message" id="loginError">❌ Mot de passe incorrect</div>
+    </form>
+    <div class="info-message">Application de suivi des élèves SEGPA</div>
+    <div class="sync-status">☁️ Données synchronisées entre tous les appareils</div>
+</div>
+
+<div id="mainApp">
+    <div class="header">
+        <h1>📚 Suivi des Élèves SEGPA</h1>
+        <div class="header-right">
+            <span class="sync-indicator" id="syncIndicator">☁️ Sync</span>
+            <button class="logout-btn" onclick="logout()">Déconnexion</button>
+        </div>
+    </div>
+
+    <div class="nav-tabs">
+        <button class="nav-tab active" onclick="showTab(event,'saisie')">✏️ Saisie</button>
+        <button class="nav-tab" onclick="showTab(event,'recherche')">🔍 Recherche</button>
+        <button class="nav-tab" onclick="showTab(event,'eleves')">👥 Élèves</button>
+        <button class="nav-tab" onclick="showTab(event,'motifs')">📋 Motifs</button>
+        <button class="nav-tab" onclick="showTab(event,'stats')">📊 Stats</button>
+    </div>
+
+    <div class="content">
+
+        <div id="saisie" class="tab-content active">
+            <h2 style="margin-bottom:15px;font-size:clamp(18px,5vw,24px);">Nouvelle Saisie de Suivi</h2>
+            <div class="alert alert-success" id="saveAlert">✅ Saisie enregistrée avec succès !</div>
+            <form id="saisieForm">
+                <div class="form-group">
+                    <label for="eleve">Élève *</label>
+                    <select id="eleve" required><option value="">-- Sélectionner un élève --</option></select>
+                </div>
+                <div class="form-group">
+                    <label for="motif">Motif de suivi *</label>
+                    <select id="motif" required><option value="">-- Sélectionner un motif --</option></select>
+                </div>
+                <div class="form-group">
+                    <label for="date">Date *</label>
+                    <input type="date" id="date" required>
+                </div>
+                <div class="form-group">
+                    <label for="commentaire">Commentaire</label>
+                    <textarea id="commentaire" maxlength="1500" placeholder="Saisissez votre commentaire ici…"></textarea>
+                    <div class="char-counter" id="charCounter">0 / 1500 caractères</div>
+                </div>
+                <div class="btn-row">
+                    <button type="submit" class="btn btn-primary">💾 Archiver la saisie</button>
+                    <button type="button" class="btn btn-secondary" onclick="resetForm()">🔄 Réinitialiser</button>
+                </div>
+            </form>
+        </div>
+
+        <div id="recherche" class="tab-content">
+            <h2 style="margin-bottom:15px;font-size:clamp(18px,5vw,24px);">Recherche dans les Archives</h2>
+            <div class="search-filters">
+                <div class="filter-row">
+                    <div class="form-group">
+                        <label for="searchEleve">Élève</label>
+                        <select id="searchEleve"><option value="">-- Tous les élèves --</option></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="searchMotif">Motif</label>
+                        <select id="searchMotif"><option value="">-- Tous les motifs --</option></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="dateDebut">Date de début</label>
+                        <input type="date" id="dateDebut">
+                    </div>
+                    <div class="form-group">
+                        <label for="dateFin">Date de fin</label>
+                        <input type="date" id="dateFin">
+                    </div>
+                </div>
+                <div class="btn-row">
+                    <button class="btn btn-primary" onclick="searchRecords()">🔍 Rechercher</button>
+                    <button class="btn btn-success" onclick="exportCSV()">📥 Exporter CSV</button>
+                    <button class="btn btn-secondary" onclick="resetSearch()">🔄 Réinitialiser</button>
+                </div>
+            </div>
+            <div id="searchResults">
+                <div class="table-responsive">
+                    <table class="results-table" id="resultsTable" style="display:none;">
+                        <thead><tr><th>Date</th><th>Élève</th><th>Motif</th><th>Commentaire</th></tr></thead>
+                        <tbody id="resultsBody"></tbody>
+                    </table>
+                </div>
+                <div class="alert alert-info" id="noResults" style="display:none;">ℹ️ Aucun résultat trouvé.</div>
+            </div>
+        </div>
+
+        <div id="eleves" class="tab-content">
+            <h2 style="margin-bottom:15px;font-size:clamp(18px,5vw,24px);">Gestion des Élèves</h2>
+            <div class="manage-list">
+                <h3>Liste des élèves actifs</h3>
+                <div class="list-items" id="elevesList"></div>
+                <form class="add-item-form" onsubmit="addEleve(event)">
+                    <input type="text" id="newEleve" placeholder="Nom et prénom de l'élève" required>
+                    <button type="submit" class="btn btn-primary">➕</button>
+                </form>
+            </div>
+            <div class="alert alert-info">ℹ️ Les élèves supprimés restent disponibles dans les recherches d'archives.</div>
+        </div>
+
+        <div id="motifs" class="tab-content">
+            <h2 style="margin-bottom:15px;font-size:clamp(18px,5vw,24px);">Gestion des Motifs de Suivi</h2>
+            <div class="manage-list">
+                <h3>Liste des motifs</h3>
+                <div class="list-items" id="motifsList"></div>
+                <form class="add-item-form" onsubmit="addMotif(event)">
+                    <input type="text" id="newMotif" placeholder="Nouveau motif de suivi" required>
+                    <button type="submit" class="btn btn-primary">➕</button>
+                </form>
+            </div>
+            <div class="alert alert-info">ℹ️ Les motifs supprimés restent disponibles dans les recherches d'archives.</div>
+        </div>
+
+        <div id="stats" class="tab-content">
+            <h2 style="margin-bottom:15px;font-size:clamp(18px,5vw,24px);">Statistiques</h2>
+            <div class="stats-container">
+                <div class="stat-card"><h3 id="totalSaisies">0</h3><p>Total saisies</p></div>
+                <div class="stat-card"><h3 id="totalEleves">0</h3><p>Élèves suivis</p></div>
+                <div class="stat-card"><h3 id="saisiesMois">0</h3><p>Ce mois</p></div>
+                <div class="stat-card"><h3 id="motifFrequent" style="font-size:clamp(13px,3vw,18px);padding-top:4px;">-</h3><p>Motif fréquent</p></div>
+            </div>
+            <h3 style="margin-bottom:10px;">Répartition par motif</h3>
+            <div class="table-responsive"><div id="motifStats"></div></div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+// ============================================================
+//  CONFIGURATION
+// ============================================================
+const CORRECT_PASSWORD = 'SEGPA31!';
+const JSONBIN_BIN_ID   = '69adb76dd0ea881f40fd2216';
+const JSONBIN_API_KEY  = '$2a$10$kAKZkOugI0vZLvzp32nrWOoVhWp8DsgRy5VklzWiaUg0c48iXcgge';
+const JSONBIN_URL      = 'https://api.jsonbin.io/v3/b/' + JSONBIN_BIN_ID;
+
+// ============================================================
+//  ÉTAT
+// ============================================================
+let data = { eleves:[], motifs:[], saisies:[], deletedEleves:[], deletedMotifs:[] };
+let currentSearchResults = [];
+let saveTimeout = null;
+
+// ============================================================
+//  UI HELPERS
+// ============================================================
+function showLoading(msg) {
+    document.getElementById('loadingMsg').textContent = msg || 'Chargement…';
+    document.getElementById('loadingOverlay').style.display = 'flex';
+}
+function hideLoading() {
+    document.getElementById('loadingOverlay').style.display = 'none';
+}
+function setSyncIndicator(state, text) {
+    const el = document.getElementById('syncIndicator');
+    if (!el) return;
+    el.textContent = text;
+    el.className = 'sync-indicator ' + state;
+}
+
+// ============================================================
+//  JSONBIN — LECTURE
+// ============================================================
+async function cloudLoad() {
+    const resp = await fetch(JSONBIN_URL + '/latest', {
+        headers: { 'X-Master-Key': JSONBIN_API_KEY }
+    });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const json = await resp.json();
+    return json.record;
+}
+
+// ============================================================
+//  JSONBIN — ÉCRITURE (debounce 800 ms)
+// ============================================================
+function saveData() {
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(doSave, 800);
+}
+
+async function doSave() {
+    setSyncIndicator('syncing', '⏳ Sauvegarde…');
+    try {
+        const resp = await fetch(JSONBIN_URL, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Master-Key': JSONBIN_API_KEY
+            },
+            body: JSON.stringify(data)
+        });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        setSyncIndicator('synced', '✅ Sauvegardé');
+        try { localStorage.setItem('suiviElevesBackup', JSON.stringify(data)); } catch(_) {}
+    } catch(e) {
+        console.error('Erreur sauvegarde:', e);
+        setSyncIndicator('error', '⚠️ Erreur sync');
+        try { localStorage.setItem('suiviElevesBackup', JSON.stringify(data)); } catch(_) {}
+    }
+}
+
+// ============================================================
+//  CHARGEMENT
+// ============================================================
+async function loadData() {
+    showLoading('Chargement des données…');
+    try {
+        const record = await cloudLoad();
+        if (record && Array.isArray(record.saisies)) {
+            data = record;
+        } else {
+            initDefaultData();
+        }
+        setSyncIndicator('synced', '✅ Connecté');
+    } catch(e) {
+        console.error('Erreur chargement:', e);
+        setSyncIndicator('error', '⚠️ Hors ligne');
+        try {
+            const backup = localStorage.getItem('suiviElevesBackup');
+            if (backup) {
+                data = JSON.parse(backup);
+                alert('⚠️ Serveur inaccessible.\nDonnées chargées depuis la sauvegarde locale.');
+            } else {
+                initDefaultData();
+            }
+        } catch(_) { initDefaultData(); }
+    }
+    hideLoading();
+}
+
+// ============================================================
+//  DONNÉES PAR DÉFAUT
+// ============================================================
+function initDefaultData() {
+    data = {
+        eleves: ['Martin DUPONT','Sophie LAMBERT','Lucas BERNARD','Emma PETIT','Thomas ROBERT'],
+        motifs: ['Comportement','Absence','Retard','Devoirs non faits','Résultats scolaires',
+                 "Difficultés d'apprentissage",'Problème familial','Orientation','Stage','Autre'],
+        saisies: [],
+        deletedEleves: [],
+        deletedMotifs: []
+    };
+    saveData();
+}
+
+// ============================================================
+//  CONNEXION
+// ============================================================
+document.getElementById('loginForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const pwd = document.getElementById('password');
+    if (pwd.value === CORRECT_PASSWORD) {
+        pwd.value = '';
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('mainApp').style.display = 'block';
+        await loadData();
+        initApp();
+    } else {
+        const err = document.getElementById('loginError');
+        err.style.display = 'block';
+        pwd.value = ''; pwd.focus();
+        setTimeout(() => { err.style.display = 'none'; }, 3000);
+    }
+});
+
+function logout() {
+    if (confirm('Voulez-vous vraiment vous déconnecter ?')) {
+        document.getElementById('mainApp').style.display = 'none';
+        const ls = document.getElementById('loginScreen');
+        ls.style.cssText = 'display:flex;flex-direction:column;align-items:stretch;';
+        document.getElementById('password').value = '';
+        document.getElementById('password').focus();
+    }
+}
+
+// ============================================================
+//  INIT APP
+// ============================================================
+function initApp() {
+    updateSelects();
+    updateLists();
+    updateStats();
+    document.getElementById('date').value = new Date().toISOString().split('T')[0];
+    document.getElementById('commentaire').addEventListener('input', updateCharCounter);
+    document.getElementById('saisieForm').addEventListener('submit', saveSaisie);
+}
+
+// ============================================================
+//  NAVIGATION
+// ============================================================
+function showTab(event, tabName) {
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById(tabName).classList.add('active');
+    if (event && event.target) event.target.classList.add('active');
+    if (tabName === 'recherche') updateSearchSelects();
+    else if (tabName === 'stats') updateStats();
+}
+
+// ============================================================
+//  SELECTS
+// ============================================================
+function updateSelects() {
+    const es = document.getElementById('eleve');
+    es.innerHTML = '<option value="">-- Sélectionner un élève --</option>';
+    [...data.eleves].sort().forEach(e => { const o=document.createElement('option'); o.value=o.textContent=e; es.appendChild(o); });
+
+    const ms = document.getElementById('motif');
+    ms.innerHTML = '<option value="">-- Sélectionner un motif --</option>';
+    data.motifs.forEach(m => { const o=document.createElement('option'); o.value=o.textContent=m; ms.appendChild(o); });
+}
+
+function updateSearchSelects() {
+    const allEleves = [...data.eleves];
+    data.deletedEleves.forEach(e => { if (data.saisies.some(s=>s.eleve===e) && !allEleves.includes(e)) allEleves.push(e); });
+    const se = document.getElementById('searchEleve');
+    se.innerHTML = '<option value="">-- Tous les élèves --</option>';
+    allEleves.sort().forEach(e => { const o=document.createElement('option'); o.value=o.textContent=e; se.appendChild(o); });
+
+    const allMotifs = [...data.motifs];
+    data.deletedMotifs.forEach(m => { if (data.saisies.some(s=>s.motif===m) && !allMotifs.includes(m)) allMotifs.push(m); });
+    const sm = document.getElementById('searchMotif');
+    sm.innerHTML = '<option value="">-- Tous les motifs --</option>';
+    allMotifs.sort().forEach(m => { const o=document.createElement('option'); o.value=o.textContent=m; sm.appendChild(o); });
+}
+
+// ============================================================
+//  LISTES
+// ============================================================
+function updateLists() {
+    const el = document.getElementById('elevesList');
+    el.innerHTML = '';
+    [...data.eleves].sort().forEach(e => {
+        const d=document.createElement('div'); d.className='list-item';
+        d.innerHTML=`<span>${e}</span><button class="delete-btn" onclick="deleteEleve('${e.replace(/'/g,"\\'")}')">Supprimer</button>`;
+        el.appendChild(d);
+    });
+    const ml = document.getElementById('motifsList');
+    ml.innerHTML = '';
+    data.motifs.forEach(m => {
+        const d=document.createElement('div'); d.className='list-item';
+        d.innerHTML=`<span>${m}</span><button class="delete-btn" onclick="deleteMotif('${m.replace(/'/g,"\\'")}')">Supprimer</button>`;
+        ml.appendChild(d);
+    });
+}
+
+// ============================================================
+//  COMPTEUR CARACTÈRES
+// ============================================================
+function updateCharCounter() {
+    const c=document.getElementById('commentaire'), ctr=document.getElementById('charCounter'), l=c.value.length;
+    ctr.textContent=`${l} / 1500 caractères`;
+    ctr.classList.remove('warning','danger');
+    if (l>1400) ctr.classList.add('danger');
+    else if (l>1200) ctr.classList.add('warning');
+}
+
+// ============================================================
+//  SAISIE
+// ============================================================
+function saveSaisie(e) {
+    e.preventDefault();
+    data.saisies.push({
+        id: Date.now(),
+        eleve: document.getElementById('eleve').value,
+        motif: document.getElementById('motif').value,
+        date:  document.getElementById('date').value,
+        commentaire: document.getElementById('commentaire').value,
+        dateCreation: new Date().toISOString()
+    });
+    saveData();
+    const a=document.getElementById('saveAlert');
+    a.classList.add('show');
+    setTimeout(()=>a.classList.remove('show'),3000);
+    resetForm(); updateStats();
+}
+
+function resetForm() {
+    document.getElementById('saisieForm').reset();
+    document.getElementById('date').value=new Date().toISOString().split('T')[0];
+    updateCharCounter();
+}
+
+// ============================================================
+//  GESTION ÉLÈVES / MOTIFS
+// ============================================================
+function addEleve(e) {
+    e.preventDefault();
+    const v=document.getElementById('newEleve').value.trim();
+    if (v && !data.eleves.includes(v)) {
+        data.eleves.push(v); data.eleves.sort();
+        saveData(); updateSelects(); updateLists();
+        document.getElementById('newEleve').value='';
+    }
+}
+function deleteEleve(eleve) {
+    if (confirm(`Supprimer "${eleve}" de la liste active ?\nL'élève restera dans les archives.`)) {
+        const i=data.eleves.indexOf(eleve);
+        if (i>-1) {
+            data.eleves.splice(i,1);
+            if (!data.deletedEleves.includes(eleve)) data.deletedEleves.push(eleve);
+            saveData(); updateSelects(); updateLists();
+        }
+    }
+}
+function addMotif(e) {
+    e.preventDefault();
+    const v=document.getElementById('newMotif').value.trim();
+    if (v && !data.motifs.includes(v)) {
+        data.motifs.push(v);
+        saveData(); updateSelects(); updateLists();
+        document.getElementById('newMotif').value='';
+    }
+}
+function deleteMotif(motif) {
+    if (confirm(`Supprimer "${motif}" de la liste active ?\nLe motif restera dans les archives.`)) {
+        const i=data.motifs.indexOf(motif);
+        if (i>-1) {
+            data.motifs.splice(i,1);
+            if (!data.deletedMotifs.includes(motif)) data.deletedMotifs.push(motif);
+            saveData(); updateSelects(); updateLists();
+        }
+    }
+}
+
+// ============================================================
+//  RECHERCHE
+// ============================================================
+function searchRecords() {
+    const eleve=document.getElementById('searchEleve').value;
+    const motif=document.getElementById('searchMotif').value;
+    const dateDebut=document.getElementById('dateDebut').value;
+    const dateFin=document.getElementById('dateFin').value;
+    let results=[...data.saisies];
+    if (eleve) results=results.filter(s=>s.eleve===eleve);
+    if (motif) results=results.filter(s=>s.motif===motif);
+    if (dateDebut) results=results.filter(s=>s.date>=dateDebut);
+    if (dateFin)   results=results.filter(s=>s.date<=dateFin);
+    results.sort((a,b)=>new Date(b.date)-new Date(a.date));
+    currentSearchResults=results;
+    displayResults(results);
+}
+
+function displayResults(results) {
+    const body=document.getElementById('resultsBody');
+    const table=document.getElementById('resultsTable');
+    const none=document.getElementById('noResults');
+    if (results.length===0) { table.style.display='none'; none.style.display='block'; }
+    else {
+        table.style.display='table'; none.style.display='none'; body.innerHTML='';
+        results.forEach(s=>{
+            const date=new Date(s.date).toLocaleDateString('fr-FR');
+            const cmt=s.commentaire.length>80?s.commentaire.substring(0,80)+'…':s.commentaire;
+            const tr=document.createElement('tr');
+            tr.innerHTML=`<td>${date}</td><td>${s.eleve}</td><td>${s.motif}</td><td>${cmt}</td>`;
+            body.appendChild(tr);
+        });
+    }
+}
+
+function resetSearch() {
+    ['searchEleve','searchMotif','dateDebut','dateFin'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('resultsTable').style.display='none';
+    document.getElementById('noResults').style.display='none';
+    currentSearchResults=[];
+}
+
+// ============================================================
+//  EXPORT CSV
+// ============================================================
+function exportCSV() {
+    const results=currentSearchResults.length>0?currentSearchResults:data.saisies;
+    if (results.length===0) { alert('Aucune donnée à exporter.'); return; }
+    let csv='\uFEFF'+'Date,Élève,Motif,Commentaire\n';
+    results.forEach(s=>{
+        const date=new Date(s.date).toLocaleDateString('fr-FR');
+        csv+=`"${date}","${s.eleve}","${s.motif}","${s.commentaire.replace(/"/g,'""')}"\n`;
+    });
+    const link=document.createElement('a');
+    link.setAttribute('href',URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'})));
+    link.setAttribute('download',`suivi_eleves_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility='hidden';
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+}
+
+// ============================================================
+//  STATISTIQUES
+// ============================================================
+function updateStats() {
+    document.getElementById('totalSaisies').textContent=data.saisies.length;
+    document.getElementById('totalEleves').textContent=new Set(data.saisies.map(s=>s.eleve)).size;
+    const cm=new Date().getMonth(),cy=new Date().getFullYear();
+    document.getElementById('saisiesMois').textContent=
+        data.saisies.filter(s=>{const d=new Date(s.date);return d.getMonth()===cm&&d.getFullYear()===cy;}).length;
+    if (data.saisies.length>0) {
+        const cnt={};
+        data.saisies.forEach(s=>{cnt[s.motif]=(cnt[s.motif]||0)+1;});
+        const sorted=Object.entries(cnt).sort((a,b)=>b[1]-a[1]);
+        document.getElementById('motifFrequent').textContent=sorted[0][0];
+        let html='<table class="results-table" style="min-width:300px"><thead><tr><th>Motif</th><th>Nb</th><th>%</th></tr></thead><tbody>';
+        sorted.forEach(([m,c])=>{html+=`<tr><td>${m}</td><td>${c}</td><td>${((c/data.saisies.length)*100).toFixed(1)}%</td></tr>`;});
+        document.getElementById('motifStats').innerHTML=html+'</tbody></table>';
+    } else {
+        document.getElementById('motifFrequent').textContent='-';
+        document.getElementById('motifStats').innerHTML='<p>Aucune donnée disponible</p>';
+    }
+}
+
+// ============================================================
+//  INIT PAGE
+// ============================================================
+window.addEventListener('load', function() {
+    document.getElementById('mainApp').style.display='none';
+    const ls=document.getElementById('loginScreen');
+    ls.style.display='flex'; ls.style.flexDirection='column'; ls.style.alignItems='stretch';
+    document.getElementById('password').focus();
+});
+</script>
+</body>
+</html>
